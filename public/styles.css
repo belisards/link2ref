@@ -1,18 +1,18 @@
 :root {
-  --bg: #f7f4ec;
-  --bg-deep: #ebe7dc;
-  --paper: rgba(255, 253, 249, 0.78);
-  --paper-strong: #fffdf8;
-  --ink: #1c242c;
-  --ink-soft: #596975;
-  --line: rgba(104, 121, 136, 0.22);
-  --line-strong: rgba(104, 121, 136, 0.45);
-  --accent: #dd5630;
-  --accent-strong: #b84526;
-  --ghost: #e1e8ee;
-  --ghost-hover: #d6e0e8;
-  --shadow: 0 22px 60px rgba(34, 38, 45, 0.12);
-  --radius: 20px;
+  --bg: #0f1219;
+  --bg-alt: #191f2b;
+  --paper: rgba(11, 17, 31, 0.72);
+  --paper-strong: rgba(17, 23, 38, 0.92);
+  --ink: #e8edf8;
+  --ink-soft: #9ca9c3;
+  --line: rgba(143, 168, 214, 0.24);
+  --line-strong: rgba(143, 168, 214, 0.52);
+  --accent: #ff7e47;
+  --accent-strong: #f24f68;
+  --ghost: #243047;
+  --ghost-hover: #2c3a55;
+  --shadow: 0 25px 80px rgba(5, 10, 20, 0.55);
+  --radius: 22px;
 }
 
 * {
@@ -46,7 +46,10 @@ body {
   margin: 0;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--ink);
-  background: linear-gradient(135deg, var(--bg) 0%, var(--bg-deep) 100%);
+  background:
+    radial-gradient(circle at 14% 10%, rgba(255, 126, 71, 0.2), rgba(255, 126, 71, 0) 38%),
+    radial-gradient(circle at 82% 92%, rgba(57, 140, 255, 0.2), rgba(57, 140, 255, 0) 42%),
+    linear-gradient(130deg, var(--bg) 0%, var(--bg-alt) 100%);
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
@@ -67,7 +70,7 @@ body::before {
   height: 420px;
   top: -120px;
   left: -90px;
-  background: radial-gradient(circle, rgba(255, 165, 98, 0.32) 0%, rgba(255, 165, 98, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 126, 71, 0.3) 0%, rgba(255, 126, 71, 0) 72%);
 }
 
 body::after {
@@ -75,28 +78,38 @@ body::after {
   height: 460px;
   bottom: -140px;
   right: -110px;
-  background: radial-gradient(circle, rgba(132, 194, 212, 0.28) 0%, rgba(132, 194, 212, 0) 72%);
+  background: radial-gradient(circle, rgba(73, 168, 255, 0.28) 0%, rgba(73, 168, 255, 0) 72%);
   animation-delay: 1.5s;
 }
 
 .shell {
   max-width: 1220px;
-  margin: 2.2rem auto;
-  padding: 1rem;
+  margin: 1.9rem auto;
+  padding: 1.1rem;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .panel {
   background: var(--paper);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1.1rem;
+  padding: 1.2rem;
   box-shadow: var(--shadow);
   animation: panelRise 0.45s ease forwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+  pointer-events: none;
 }
 
 h1,
@@ -106,7 +119,7 @@ h2 {
 
 h1 {
   font-size: clamp(2rem, 4vw, 2.7rem);
-  line-height: 1;
+  line-height: 0.95;
   letter-spacing: -0.03em;
 }
 
@@ -115,12 +128,62 @@ p {
   color: var(--ink-soft);
 }
 
+h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #cfd8ea;
+}
+
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.85rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.7rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #161b27;
+  background: linear-gradient(135deg, #ffd06d 0%, #ff8f4a 100%);
+}
+
+.lede {
+  max-width: 54ch;
+}
+
+.hint-strip {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.hint-strip span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 168, 214, 0.3);
+  color: #d5def0;
+  background: rgba(143, 168, 214, 0.12);
+  font-size: 0.74rem;
+}
+
 label {
   display: block;
   margin-top: 0.95rem;
   margin-bottom: 0.38rem;
   font-weight: 700;
-  color: #2c3740;
+  color: #d9e2f6;
 }
 
 input,
@@ -137,7 +200,8 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0.72rem 0.78rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(9, 16, 30, 0.72);
+  color: var(--ink);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -145,8 +209,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(221, 86, 48, 0.65);
-  box-shadow: 0 0 0 3px rgba(221, 86, 48, 0.16);
+  border-color: rgba(255, 126, 71, 0.65);
+  box-shadow: 0 0 0 3px rgba(255, 126, 71, 0.17);
 }
 
 textarea {
@@ -169,12 +233,14 @@ button {
   background: linear-gradient(145deg, var(--accent) 0%, var(--accent-strong) 100%);
   color: #fff;
   font-weight: 700;
-  transition: transform 0.14s ease, filter 0.2s ease;
+  box-shadow: 0 12px 25px rgba(242, 79, 104, 0.24);
+  transition: transform 0.14s ease, filter 0.2s ease, box-shadow 0.2s ease;
 }
 
 button:hover {
   transform: translateY(-1px);
   filter: saturate(1.05) brightness(1.02);
+  box-shadow: 0 14px 28px rgba(242, 79, 104, 0.28);
 }
 
 button:active {
@@ -183,7 +249,8 @@ button:active {
 
 button.ghost {
   background: var(--ghost);
-  color: var(--ink);
+  color: #e1e8f7;
+  box-shadow: none;
 }
 
 button.ghost:hover {
@@ -207,6 +274,14 @@ button.ghost:hover {
   margin-bottom: 0.82rem;
 }
 
+.output-head {
+  margin-bottom: 0.85rem;
+}
+
+.output-head p {
+  font-size: 0.9rem;
+}
+
 progress {
   width: 100%;
   height: 12px;
@@ -215,15 +290,15 @@ progress {
 }
 
 progress::-webkit-progress-bar {
-  background: #e8edf2;
+  background: #1f2b42;
 }
 
 progress::-webkit-progress-value {
-  background: linear-gradient(90deg, #f28764 0%, #de5e37 100%);
+  background: linear-gradient(90deg, #ff9950 0%, #f24f68 100%);
 }
 
 progress::-moz-progress-bar {
-  background: linear-gradient(90deg, #f28764 0%, #de5e37 100%);
+  background: linear-gradient(90deg, #ff9950 0%, #f24f68 100%);
 }
 
 pre {
@@ -234,10 +309,11 @@ pre {
   border-radius: 14px;
   background: var(--paper-strong);
   border: 1px solid var(--line);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(198, 220, 255, 0.1);
   font-family: "JetBrains Mono", "SFMono-Regular", monospace;
   font-size: 0.84rem;
   line-height: 1.45;
+  color: #e0eaff;
 }
 
 #failuresWrap h2 {
@@ -268,5 +344,11 @@ pre {
 
   textarea {
     min-height: 185px;
+  }
+
+  .brand-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
   }
 }

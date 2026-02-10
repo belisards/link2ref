@@ -1,4 +1,4 @@
-import Cite from "@citation-js/core";
+import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 
 export const OUTPUT_FORMATS = {
@@ -72,10 +72,21 @@ async function formatApaFallback(item) {
   }
 }
 
+function formatAbntAccessedDate(dateParts) {
+  if (!dateParts) return null;
+  const [year, month, day] = dateParts;
+  if (!year) return null;
+  const ABNT_MONTHS = ["jan.", "fev.", "mar.", "abr.", "maio", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+  const monthStr = month ? ` ${ABNT_MONTHS[month - 1]}` : "";
+  const dayStr = day ? `${day}` : "";
+  return `${dayStr}${monthStr} ${year}`;
+}
+
 function formatAbntFallback(item) {
   const title = item.title || "Untitled";
   const year = item?.issued?.["date-parts"]?.[0]?.[0];
   const url = item.URL || item.url || "";
+  const publisherName = item.publisher || item["container-title"] || "";
 
   const authorParts = Array.isArray(item.author)
     ? item.author
@@ -90,8 +101,14 @@ function formatAbntFallback(item) {
 
   const authors = authorParts.length ? `${authorParts.join("; ")}. ` : "";
   const yearPart = year ? ` ${year}.` : "";
+  const publisherPart = publisherName ? ` ${publisherName}.` : "";
   const urlPart = url ? ` Available at: ${url}.` : "";
-  return `${authors}${title}.${yearPart}${urlPart}`.trim();
+
+  const accessedParts = item?.accessed?.["date-parts"]?.[0];
+  const accessedStr = formatAbntAccessedDate(accessedParts);
+  const accessedPart = accessedStr ? ` Acesso em: ${accessedStr}.` : "";
+
+  return `${authors}${title}.${publisherPart}${yearPart}${urlPart}${accessedPart}`.trim();
 }
 
 async function mapWithConcurrency(items, limit, mapper) {

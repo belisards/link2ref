@@ -11,6 +11,9 @@ Browser-based & ad-free. Vibed-coded & open-source.
 - Live progress indicator while links are processed
 - Post-query reformatting without re-fetching links
 - DOI resolution via DOI content negotiation to CSL-JSON
+- News/article URL detection (`og:type` → `article-newspaper` CSL type)
+- Full date extraction (ISO 8601 with month/day, not just year)
+- Automatic "accessed" date for web sources
 - HTML metadata extraction (citation meta tags, OpenGraph, Dublin Core)
 - PDF/report-PDF fallback extraction with DOI detection in text
 - JSON download (`csl.json`)
@@ -95,6 +98,16 @@ Response shape:
   ]
 }
 ```
+
+## Testing
+
+E2E tests use Playwright with Chromium:
+
+```bash
+npm run test:e2e
+```
+
+Tests cover news URL citation quality, DOI regression, format switching, and batch processing.
 
 ## Notes
 

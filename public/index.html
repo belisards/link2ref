@@ -15,8 +15,16 @@
   <body>
     <main class="shell">
       <section class="panel form-panel">
-        <h1>link2ref</h1>
-        <p>Convert links, PDFs, report PDFs, and DOIs into CSL-JSON.</p>
+        <div class="brand-row">
+          <span class="badge">MVP</span>
+          <h1>link2ref</h1>
+        </div>
+        <p class="lede">Convert links, PDFs, report PDFs, and DOIs into clean citation output.</p>
+        <div class="hint-strip">
+          <span>Batch input</span>
+          <span>Fast parsing</span>
+          <span>APA / ABNT / CSL</span>
+        </div>
 
         <label for="batch">Batch links (one per line)</label>
         <textarea id="batch" rows="10" placeholder="Paste one link per line"></textarea>
@@ -40,6 +48,10 @@
       </section>
 
       <section class="panel output-panel">
+        <div class="output-head">
+          <h2>Rendered Output</h2>
+          <p>Switch style and ordering without rerunning parsing.</p>
+        </div>
         <div class="output-controls">
           <label for="format">Output format</label>
           <select id="format">

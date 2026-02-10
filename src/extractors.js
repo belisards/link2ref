@@ -77,6 +77,9 @@ async function parseHtmlToCsl(url, html) {
     }
   }
 
+  const ogType = pickMeta($, "og:type");
+  const cslType = ogType === "article" ? "article-newspaper" : "webpage";
+
   const title =
     pickMeta($, "citation_title", "dc.title", "og:title", "twitter:title") ||
     $("title").first().text() ||
@@ -89,19 +92,25 @@ async function parseHtmlToCsl(url, html) {
       .get()
       .join("; ");
 
-  const issued = pickMeta($, "citation_publication_date", "article:published_time", "dc.date", "date");
+  const issued = pickMeta($, "citation_publication_date", "article:published_time", "article:modified_time", "dc.date", "date");
   const abstract = pickMeta($, "description", "og:description", "dc.description", "citation_abstract");
-  const containerTitle = pickMeta($, "citation_journal_title", "og:site_name");
+  const siteName = pickMeta($, "og:site_name");
+  const containerTitle = pickMeta($, "citation_journal_title") || siteName;
+  const publisher = siteName || undefined;
+
+  const accessed = new Date().toISOString().slice(0, 10);
 
   return baseItem({
     id: makeId("web"),
-    type: "webpage",
+    type: cslType,
     title,
     author,
     issued,
+    accessed,
     URL: url,
     DOI: doi || undefined,
     containerTitle,
+    publisher,
     abstract,
   });
 }

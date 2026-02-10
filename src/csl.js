@@ -27,14 +27,23 @@ function splitAuthors(value) {
   });
 }
 
-function parseYear(value) {
+function parseDate(value) {
   if (!value) return undefined;
-  const match = String(value).match(/\b(\d{4})\b/);
-  if (!match) return undefined;
-  return { "date-parts": [[Number(match[1])]] };
+  const str = String(value).trim();
+
+  // ISO 8601: 2025-06-05T16:00:00Z or 2025-06-05
+  const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    return { "date-parts": [[Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]] };
+  }
+
+  // Year-only fallback
+  const yearMatch = str.match(/\b(\d{4})\b/);
+  if (!yearMatch) return undefined;
+  return { "date-parts": [[Number(yearMatch[1])]] };
 }
 
-export function baseItem({ id, type = "webpage", title, author, issued, URL, DOI, containerTitle, abstract }) {
+export function baseItem({ id, type = "webpage", title, author, issued, accessed, URL, DOI, containerTitle, publisher, abstract }) {
   const item = {
     id,
     type,
@@ -45,13 +54,19 @@ export function baseItem({ id, type = "webpage", title, author, issued, URL, DOI
   if (authors.length) item.author = authors;
 
   if (issued) {
-    const parsedIssued = typeof issued === "string" ? parseYear(issued) : issued;
+    const parsedIssued = typeof issued === "string" ? parseDate(issued) : issued;
     if (parsedIssued) item.issued = parsedIssued;
+  }
+
+  if (accessed) {
+    const parsedAccessed = typeof accessed === "string" ? parseDate(accessed) : accessed;
+    if (parsedAccessed) item.accessed = parsedAccessed;
   }
 
   if (URL) item.URL = URL;
   if (DOI) item.DOI = DOI;
   if (containerTitle) item["container-title"] = normalizeText(containerTitle);
+  if (publisher) item.publisher = normalizeText(publisher);
   if (abstract) item.abstract = normalizeText(abstract);
 
   return item;
