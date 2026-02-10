@@ -14,17 +14,72 @@ let lastCsl = [];
 let lastErrors = [];
 let lastFormat = "apa";
 let lastOutput = [];
+let lastSuccessEntries = [];
+let lastErrorEntries = [];
+let lastOriginalUniqueLinks = [];
+const formattedCacheByFormat = {
+  apa: new Map(),
+  abnt: new Map(),
+};
 
-function parseInputs() {
-  const raw = batchEl.value
+function parseRawUniqueInputs() {
+  return Array.from(
+    new Set(
+      batchEl.value
     .split(/\r?\n/)
     .map((v) => v.trim())
-    .filter(Boolean);
-  const unique = Array.from(new Set(raw));
-  if (orderEl.value === "alphabetical") {
-    unique.sort((a, b) => a.localeCompare(b));
+        .filter(Boolean)
+    )
+  );
+}
+
+function orderLinks(links, orderMode) {
+  const unique = [...links];
+  if (orderMode === "alphabetical") {
+    unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   }
   return unique;
+}
+
+function parseInputs() {
+  const unique = parseRawUniqueInputs();
+  if (orderEl.value === "alphabetical") {
+    unique.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+  return unique;
+}
+
+function citationSortKey(entry) {
+  const csl = entry?.csl || {};
+  const firstAuthor = Array.isArray(csl.author) ? csl.author[0] : null;
+  const authorKey = firstAuthor
+    ? (firstAuthor.family || firstAuthor.literal || firstAuthor.given || "").toLowerCase()
+    : "";
+  const year = csl?.issued?.["date-parts"]?.[0]?.[0] || 0;
+  const titleKey = String(csl.title || "").toLowerCase();
+  return `${authorKey}|${String(year)}|${titleKey}`;
+}
+
+function getOrderedEntries(entries) {
+  const orderMode = orderEl.value;
+  const originalIndex = new Map(lastOriginalUniqueLinks.map((link, idx) => [link, idx]));
+
+  const copy = [...entries];
+  copy.sort((a, b) => {
+    const aInput = a.input || "";
+    const bInput = b.input || "";
+
+    if (orderMode === "alphabetical") {
+      const aKey = a.csl ? citationSortKey(a) : aInput.toLowerCase();
+      const bKey = b.csl ? citationSortKey(b) : bInput.toLowerCase();
+      return aKey.localeCompare(bKey, undefined, { sensitivity: "base" });
+    }
+
+    const aIdx = originalIndex.has(aInput) ? originalIndex.get(aInput) : Number.MAX_SAFE_INTEGER;
+    const bIdx = originalIndex.has(bInput) ? originalIndex.get(bInput) : Number.MAX_SAFE_INTEGER;
+    return aIdx - bIdx;
+  });
+  return copy;
 }
 
 function renderOutput() {
@@ -45,6 +100,19 @@ function renderFailures() {
 }
 
 async function reformatFromCsl(format) {
+  const orderedSuccess = getOrderedEntries(lastSuccessEntries);
+  const cache = formattedCacheByFormat[format];
+
+  if ((format === "apa" || format === "abnt") && cache && orderedSuccess.length) {
+    const allCached = orderedSuccess.every((entry) => cache.has(entry.input));
+    if (allCached) {
+      lastFormat = format;
+      lastOutput = orderedSuccess.map((entry) => cache.get(entry.input));
+      renderOutput();
+      return;
+    }
+  }
+
   const res = await fetch("/api/format", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -56,11 +124,34 @@ async function reformatFromCsl(format) {
   }
   lastFormat = data.format || format;
   lastOutput = data.output || [];
+
+  if ((lastFormat === "apa" || lastFormat === "abnt") && formattedCacheByFormat[lastFormat]) {
+    const targetCache = formattedCacheByFormat[lastFormat];
+    orderedSuccess.forEach((entry, idx) => {
+      targetCache.set(entry.input, lastOutput[idx] || "");
+    });
+  }
+
   renderOutput();
 }
 
+async function refreshOutputFromCurrentData(format) {
+  const orderedSuccess = getOrderedEntries(lastSuccessEntries);
+  const orderedErrors = getOrderedEntries(lastErrorEntries);
+
+  lastCsl = orderedSuccess.map((item) => item.csl);
+  lastErrors = orderedErrors.map((item) => ({
+    input: item.input,
+    normalized: item.normalized || null,
+    error: item.error || "Unknown error",
+  }));
+
+  await reformatFromCsl(format);
+  renderFailures();
+}
+
 function renderUniqueCount() {
-  const uniqueCount = parseInputs().length;
+  const uniqueCount = parseRawUniqueInputs().length;
   uniqueCountEl.textContent = `Unique links identified: ${uniqueCount}`;
 }
 
@@ -77,7 +168,8 @@ function hideProgress() {
 }
 
 async function run() {
-  const links = parseInputs();
+  const originalUniqueLinks = parseRawUniqueInputs();
+  const links = orderLinks(originalUniqueLinks, orderEl.value);
   const format = formatEl.value || "csl_json";
   if (!links.length) {
     statusEl.textContent = "Add at least one link.";
@@ -89,6 +181,7 @@ async function run() {
   showProgress(0, links.length);
 
   try {
+    lastOriginalUniqueLinks = originalUniqueLinks;
     const aggregated = {
       total: links.length,
       success: 0,
@@ -120,17 +213,9 @@ async function run() {
     }
 
     lastCsl = aggregated.csl;
-    lastErrors = aggregated.results
-      .filter((item) => !item.ok)
-      .map((item) => ({
-        input: item.input,
-        normalized: item.normalized || null,
-        error: item.error || "Unknown error",
-      }));
-
-    await reformatFromCsl(format);
-    renderOutput();
-    renderFailures();
+    lastSuccessEntries = aggregated.results.filter((item) => item.ok);
+    lastErrorEntries = aggregated.results.filter((item) => !item.ok);
+    await refreshOutputFromCurrentData(format);
     statusEl.textContent = `Done. ${aggregated.success}/${aggregated.total} converted, ${aggregated.failed} failed.`;
   } catch (error) {
     statusEl.textContent = `Error: ${error.message}`;
@@ -147,6 +232,11 @@ function clearAll() {
   lastOutput = [];
   lastFormat = "apa";
   lastErrors = [];
+  lastSuccessEntries = [];
+  lastErrorEntries = [];
+  lastOriginalUniqueLinks = [];
+  formattedCacheByFormat.apa.clear();
+  formattedCacheByFormat.abnt.clear();
   outputEl.textContent = "[]";
   hideProgress();
   renderFailures();
@@ -172,11 +262,21 @@ document.getElementById("run").addEventListener("click", run);
 document.getElementById("clear").addEventListener("click", clearAll);
 document.getElementById("download").addEventListener("click", download);
 formatEl.addEventListener("change", async () => {
-  if (!lastCsl.length) return;
+  if (!lastSuccessEntries.length) return;
   statusEl.textContent = `Reformatting output to ${formatEl.value.toUpperCase()}...`;
   try {
-    await reformatFromCsl(formatEl.value);
+    await refreshOutputFromCurrentData(formatEl.value);
     statusEl.textContent = "Output format updated.";
+  } catch (error) {
+    statusEl.textContent = `Error: ${error.message}`;
+  }
+});
+orderEl.addEventListener("change", async () => {
+  if (!lastSuccessEntries.length && !lastErrorEntries.length) return;
+  statusEl.textContent = "Applying link order...";
+  try {
+    await refreshOutputFromCurrentData(lastFormat);
+    statusEl.textContent = "Link order updated.";
   } catch (error) {
     statusEl.textContent = `Error: ${error.message}`;
   }
