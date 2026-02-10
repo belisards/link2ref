@@ -1,25 +1,79 @@
-const singleEl = document.getElementById("single");
 const batchEl = document.getElementById("batch");
+const orderEl = document.getElementById("order");
 const formatEl = document.getElementById("format");
 const outputEl = document.getElementById("output");
 const statusEl = document.getElementById("status");
 const errorsEl = document.getElementById("errors");
-const outputTitleEl = document.querySelector(".output-panel h2");
+const failuresWrapEl = document.getElementById("failuresWrap");
+const uniqueCountEl = document.getElementById("uniqueCount");
+const progressWrapEl = document.getElementById("progressWrap");
+const progressBarEl = document.getElementById("progressBar");
+const progressTextEl = document.getElementById("progressText");
 
 let lastCsl = [];
 let lastErrors = [];
-let lastFormat = "csl_json";
+let lastFormat = "apa";
 let lastOutput = [];
 
 function parseInputs() {
-  const single = singleEl.value.trim();
-  const batch = batchEl.value
+  const raw = batchEl.value
     .split(/\r?\n/)
     .map((v) => v.trim())
     .filter(Boolean);
+  const unique = Array.from(new Set(raw));
+  if (orderEl.value === "alphabetical") {
+    unique.sort((a, b) => a.localeCompare(b));
+  }
+  return unique;
+}
 
-  const links = [...(single ? [single] : []), ...batch];
-  return Array.from(new Set(links));
+function renderOutput() {
+  outputEl.textContent =
+    lastFormat === "apa" || lastFormat === "abnt"
+      ? lastOutput.join("\n\n")
+      : JSON.stringify(lastOutput, null, 2);
+}
+
+function renderFailures() {
+  if (!lastErrors.length) {
+    failuresWrapEl.classList.add("hidden");
+    errorsEl.textContent = "[]";
+    return;
+  }
+  failuresWrapEl.classList.remove("hidden");
+  errorsEl.textContent = JSON.stringify(lastErrors, null, 2);
+}
+
+async function reformatFromCsl(format) {
+  const res = await fetch("/api/format", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ csl: lastCsl, format }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed: ${res.status}`);
+  }
+  lastFormat = data.format || format;
+  lastOutput = data.output || [];
+  renderOutput();
+}
+
+function renderUniqueCount() {
+  const uniqueCount = parseInputs().length;
+  uniqueCountEl.textContent = `Unique links identified: ${uniqueCount}`;
+}
+
+function showProgress(processed, total) {
+  progressWrapEl.classList.remove("hidden");
+  progressTextEl.textContent = `Processing ${processed}/${total}`;
+  progressBarEl.value = total ? Math.round((processed / total) * 100) : 0;
+}
+
+function hideProgress() {
+  progressWrapEl.classList.add("hidden");
+  progressTextEl.textContent = "Processing 0/0";
+  progressBarEl.value = 0;
 }
 
 async function run() {
@@ -30,24 +84,43 @@ async function run() {
     return;
   }
 
-  statusEl.textContent = `Processing ${links.length} link(s)...`;
+  statusEl.textContent = `Processing ${links.length} unique link(s)...`;
+  renderUniqueCount();
+  showProgress(0, links.length);
 
   try {
-    const res = await fetch("/api/parse", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ links, format }),
-    });
+    const aggregated = {
+      total: links.length,
+      success: 0,
+      failed: 0,
+      csl: [],
+      results: [],
+    };
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `Request failed: ${res.status}`);
+    for (let i = 0; i < links.length; i += 1) {
+      const link = links[i];
+      // Process one link at a time so progress reflects real completion.
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch("/api/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links: [link], format: "csl_json" }),
+      });
+      // eslint-disable-next-line no-await-in-loop
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Request failed: ${res.status}`);
+      }
+
+      aggregated.success += data.success || 0;
+      aggregated.failed += data.failed || 0;
+      aggregated.csl.push(...(data.csl || []));
+      aggregated.results.push(...(data.results || []));
+      showProgress(i + 1, links.length);
     }
 
-    lastCsl = data.csl || [];
-    lastFormat = data.format || format;
-    lastOutput = data.output || [];
-    lastErrors = (data.results || [])
+    lastCsl = aggregated.csl;
+    lastErrors = aggregated.results
       .filter((item) => !item.ok)
       .map((item) => ({
         input: item.input,
@@ -55,46 +128,42 @@ async function run() {
         error: item.error || "Unknown error",
       }));
 
-    outputTitleEl.textContent = lastFormat === "apa" ? "APA Output" : "CSL-JSON Output";
-    outputEl.textContent =
-      lastFormat === "apa"
-        ? lastOutput.join("\n\n")
-        : JSON.stringify(lastOutput, null, 2);
-    errorsEl.textContent = JSON.stringify(lastErrors, null, 2);
-    statusEl.textContent = `Done. ${data.success}/${data.total} converted, ${data.failed} failed.`;
+    await reformatFromCsl(format);
+    renderOutput();
+    renderFailures();
+    statusEl.textContent = `Done. ${aggregated.success}/${aggregated.total} converted, ${aggregated.failed} failed.`;
   } catch (error) {
     statusEl.textContent = `Error: ${error.message}`;
-    errorsEl.textContent = JSON.stringify(
-      [{ input: null, normalized: null, error: error.message }],
-      null,
-      2
-    );
+    lastErrors = [{ input: null, normalized: null, error: error.message }];
+    renderFailures();
+  } finally {
+    hideProgress();
   }
 }
 
 function clearAll() {
-  singleEl.value = "";
   batchEl.value = "";
   lastCsl = [];
   lastOutput = [];
-  lastFormat = "csl_json";
+  lastFormat = "apa";
   lastErrors = [];
   outputEl.textContent = "[]";
-  outputTitleEl.textContent = "CSL-JSON Output";
-  errorsEl.textContent = "[]";
+  hideProgress();
+  renderFailures();
   statusEl.textContent = "";
 }
 
 function download() {
-  const isApa = lastFormat === "apa";
-  const contents = isApa ? lastOutput.join("\n\n") : JSON.stringify(lastOutput, null, 2);
+  const isTextStyle = lastFormat === "apa" || lastFormat === "abnt";
+  const contents = isTextStyle ? lastOutput.join("\n\n") : JSON.stringify(lastOutput, null, 2);
   const blob = new Blob([contents], {
-    type: isApa ? "text/plain" : "application/json",
+    type: isTextStyle ? "text/plain" : "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = isApa ? "citations-apa.txt" : "csl.json";
+  a.download =
+    lastFormat === "apa" ? "citations-apa.txt" : lastFormat === "abnt" ? "citations-abnt.txt" : "csl.json";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -102,3 +171,13 @@ function download() {
 document.getElementById("run").addEventListener("click", run);
 document.getElementById("clear").addEventListener("click", clearAll);
 document.getElementById("download").addEventListener("click", download);
+formatEl.addEventListener("change", async () => {
+  if (!lastCsl.length) return;
+  statusEl.textContent = `Reformatting output to ${formatEl.value.toUpperCase()}...`;
+  try {
+    await reformatFromCsl(formatEl.value);
+    statusEl.textContent = "Output format updated.";
+  } catch (error) {
+    statusEl.textContent = `Error: ${error.message}`;
+  }
+});

@@ -4,9 +4,8 @@ Browser-based MVP that accepts a single link or a batch list of links (HTML page
 
 ## Features
 
-- Single link input
 - Batch links input (one per line)
-- Output format selector: `csl_json` or `apa`
+- Output format selector: `apa` (default), `abnt`, or `csl_json`
 - DOI resolution via DOI content negotiation to CSL-JSON
 - HTML metadata extraction (citation meta tags, OpenGraph, Dublin Core)
 - PDF/report-PDF fallback extraction with DOI detection in text
@@ -34,6 +33,23 @@ Request:
     "https://example.com/article",
     "10.1038/s41586-020-2649-2",
     "https://example.com/report.pdf"
+  ]
+}
+```
+
+### `POST /api/format`
+
+Reformat previously returned CSL records without re-parsing links.
+
+```json
+{
+  "format": "apa",
+  "csl": [
+    {
+      "type": "article-journal",
+      "title": "Example",
+      "author": [{"family": "Doe", "given": "A."}]
+    }
   ]
 }
 ```

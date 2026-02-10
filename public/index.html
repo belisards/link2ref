@@ -12,32 +12,43 @@
         <h1>link2ref</h1>
         <p>Convert links, PDFs, report PDFs, and DOIs into CSL-JSON.</p>
 
-        <label for="single">Single link</label>
-        <input id="single" type="url" placeholder="https://example.com/article or 10.1234/abcd" />
-
         <label for="batch">Batch links (one per line)</label>
-        <textarea id="batch" rows="10" placeholder="https://example.com\nhttps://doi.org/10.xxxx/yyyy"></textarea>
-
-        <label for="format">Output format</label>
-        <select id="format">
-          <option value="csl_json">CSL-JSON</option>
-          <option value="apa">APA citation style</option>
-        </select>
+        <textarea id="batch" rows="10" placeholder="Past one link per line"></textarea>
 
         <div class="actions">
           <button id="run">Convert</button>
           <button id="clear" class="ghost">Clear</button>
-          <button id="download" class="ghost">Download JSON</button>
+        </div>
+
+        <div id="progressWrap" class="hidden">
+          <div id="uniqueCount" class="status">Unique links identified: 0</div>
+          <div class="status" id="progressText">Processing 0/0</div>
+          <progress id="progressBar" value="0" max="100"></progress>
         </div>
 
         <div id="status" class="status"></div>
+        <div id="failuresWrap" class="hidden">
+          <h2>Failures</h2>
+          <pre id="errors">[]</pre>
+        </div>
       </section>
 
       <section class="panel output-panel">
-        <h2>CSL-JSON Output</h2>
+        <div class="output-controls">
+          <label for="format">Output format</label>
+          <select id="format">
+            <option value="apa" selected>APA citation style</option>
+            <option value="abnt">ABNT citation style</option>
+            <option value="csl_json">CSL-JSON</option>
+          </select>
+          <label for="order">Link order</label>
+          <select id="order">
+            <option value="alphabetical" selected>Alphabetical (default)</option>
+            <option value="original">Original input order</option>
+          </select>
+          <button id="download" class="ghost">Download Output</button>
+        </div>
         <pre id="output">[]</pre>
-        <h2>Failures</h2>
-        <pre id="errors">[]</pre>
       </section>
     </main>
 

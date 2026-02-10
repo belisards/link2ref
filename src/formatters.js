@@ -2,14 +2,17 @@ import Cite from "@citation-js/core";
 import "@citation-js/plugin-csl";
 
 export const OUTPUT_FORMATS = {
-  CSL_JSON: "csl_json",
   APA: "apa",
+  ABNT: "abnt",
+  CSL_JSON: "csl_json",
 };
 
 export function normalizeFormat(input) {
   const value = String(input || "").toLowerCase().trim();
   if (value === OUTPUT_FORMATS.APA) return OUTPUT_FORMATS.APA;
-  return OUTPUT_FORMATS.CSL_JSON;
+  if (value === OUTPUT_FORMATS.ABNT) return OUTPUT_FORMATS.ABNT;
+  if (value === OUTPUT_FORMATS.CSL_JSON) return OUTPUT_FORMATS.CSL_JSON;
+  return OUTPUT_FORMATS.APA;
 }
 
 function extractDoi(item) {
@@ -38,6 +41,22 @@ async function formatApaFromDoi(doi) {
   return (await res.text()).trim();
 }
 
+async function formatAbntFromDoi(doi) {
+  const endpoint = `https://doi.org/${encodeURIComponent(doi)}`;
+  const res = await fetch(endpoint, {
+    headers: {
+      Accept: "text/x-bibliography; style=associacao-brasileira-de-normas-tecnicas",
+      "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`DOI ABNT lookup failed (${res.status})`);
+  }
+
+  return (await res.text()).trim();
+}
+
 async function formatApaFallback(item) {
   try {
     const cite = new Cite(item);
@@ -51,6 +70,28 @@ async function formatApaFallback(item) {
   } catch {
     return `[APA formatting failed] ${item.title || item.URL || item.id || "Untitled"}`;
   }
+}
+
+function formatAbntFallback(item) {
+  const title = item.title || "Untitled";
+  const year = item?.issued?.["date-parts"]?.[0]?.[0];
+  const url = item.URL || item.url || "";
+
+  const authorParts = Array.isArray(item.author)
+    ? item.author
+        .map((a) => {
+          if (a.literal) return a.literal;
+          const family = a.family || "";
+          const given = a.given || "";
+          return `${family}${given ? `, ${given}` : ""}`.trim();
+        })
+        .filter(Boolean)
+    : [];
+
+  const authors = authorParts.length ? `${authorParts.join("; ")}. ` : "";
+  const yearPart = year ? ` ${year}.` : "";
+  const urlPart = url ? ` Available at: ${url}.` : "";
+  return `${authors}${title}.${yearPart}${urlPart}`.trim();
 }
 
 export async function formatOutput(cslItems, format) {
@@ -70,6 +111,25 @@ export async function formatOutput(cslItems, format) {
       }
       // eslint-disable-next-line no-await-in-loop
       entries.push(await formatApaFallback(item));
+    }
+    return entries;
+  }
+
+  if (format === OUTPUT_FORMATS.ABNT) {
+    const entries = [];
+    for (const item of cslItems) {
+      const doi = extractDoi(item);
+      if (doi) {
+        try {
+          // Prefer DOI-based bibliography formatting for higher-fidelity ABNT output.
+          // eslint-disable-next-line no-await-in-loop
+          entries.push(await formatAbntFromDoi(doi));
+          continue;
+        } catch {
+          // Fallback below.
+        }
+      }
+      entries.push(formatAbntFallback(item));
     }
     return entries;
   }

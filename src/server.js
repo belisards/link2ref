@@ -11,6 +11,10 @@ const __dirname = path.dirname(__filename);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
+function outputTypeFor(format) {
+  return format === OUTPUT_FORMATS.CSL_JSON ? "json" : "text";
+}
+
 app.post("/api/parse", async (req, res) => {
   const format = normalizeFormat(req.body?.format);
   const links = Array.isArray(req.body?.links)
@@ -42,13 +46,29 @@ app.post("/api/parse", async (req, res) => {
 
   return res.json({
     format,
-    outputType: format === OUTPUT_FORMATS.APA ? "text" : "json",
+    outputType: outputTypeFor(format),
     total: jobs.length,
     success: csl.length,
     failed: errors.length,
     output,
     csl,
     results,
+  });
+});
+
+app.post("/api/format", async (req, res) => {
+  const format = normalizeFormat(req.body?.format);
+  const csl = Array.isArray(req.body?.csl) ? req.body.csl : [];
+
+  if (!csl.length) {
+    return res.status(400).json({ error: "Provide csl array" });
+  }
+
+  const output = await formatOutput(csl, format);
+  return res.json({
+    format,
+    outputType: outputTypeFor(format),
+    output,
   });
 });
 
