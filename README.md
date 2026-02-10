@@ -1,11 +1,12 @@
-# link2ref (MVP)
+# link2ref 
 
-Browser-based MVP that accepts a single link or a batch list of links (HTML pages, PDFs/report PDFs, DOIs) and outputs CSL-JSON.
+Easily convert links into structured output formats.
+
+Browser-based & ad-free. Vibed-coded & open-source.
 
 ## Features
 
-- Batch links input (one per line)
-- Output format selector: `apa` (default), `abnt`, or `csl_json`
+- Batch links input 
 - Link ordering: `alphabetical` (default) or `original input order`
 - Live progress indicator while links are processed
 - Post-query reformatting without re-fetching links
@@ -13,6 +14,13 @@ Browser-based MVP that accepts a single link or a batch list of links (HTML page
 - HTML metadata extraction (citation meta tags, OpenGraph, Dublin Core)
 - PDF/report-PDF fallback extraction with DOI detection in text
 - JSON download (`csl.json`)
+
+## Output formats available
+
+-`apa` 
+- `abnt`
+- `csl_json`
+
 
 ## Quick start
 
