@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>link2ref MVP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -13,7 +19,7 @@
         <p>Convert links, PDFs, report PDFs, and DOIs into CSL-JSON.</p>
 
         <label for="batch">Batch links (one per line)</label>
-        <textarea id="batch" rows="10" placeholder="Past one link per line"></textarea>
+        <textarea id="batch" rows="10" placeholder="Paste one link per line"></textarea>
 
         <div class="actions">
           <button id="run">Convert</button>
@@ -46,12 +52,12 @@
             <option value="alphabetical" selected>Alphabetical (default)</option>
             <option value="original">Original input order</option>
           </select>
-          <button id="download" class="ghost">Download Output</button>
+          <button id="download" class="ghost">Download Output 📥</button>
         </div>
         <pre id="output">[]</pre>
       </section>
     </main>
 
-    <script type="module" src="app.js"></script>
+    <script type="module" src="app.js?v=4"></script>
   </body>
 </html>
