@@ -6,6 +6,9 @@ Browser-based MVP that accepts a single link or a batch list of links (HTML page
 
 - Batch links input (one per line)
 - Output format selector: `apa` (default), `abnt`, or `csl_json`
+- Link ordering: `alphabetical` (default) or `original input order`
+- Live progress indicator while links are processed
+- Post-query reformatting without re-fetching links
 - DOI resolution via DOI content negotiation to CSL-JSON
 - HTML metadata extraction (citation meta tags, OpenGraph, Dublin Core)
 - PDF/report-PDF fallback extraction with DOI detection in text
