@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>link2ref MVP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel form-panel">
+        <h1>link2ref</h1>
+        <p>Convert links, PDFs, report PDFs, and DOIs into CSL-JSON.</p>
+
+        <label for="single">Single link</label>
+        <input id="single" type="url" placeholder="https://example.com/article or 10.1234/abcd" />
+
+        <label for="batch">Batch links (one per line)</label>
+        <textarea id="batch" rows="10" placeholder="https://example.com\nhttps://doi.org/10.xxxx/yyyy"></textarea>
+
+        <label for="format">Output format</label>
+        <select id="format">
+          <option value="csl_json">CSL-JSON</option>
+          <option value="apa">APA citation style</option>
+        </select>
+
+        <div class="actions">
+          <button id="run">Convert</button>
+          <button id="clear" class="ghost">Clear</button>
+          <button id="download" class="ghost">Download JSON</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="panel output-panel">
+        <h2>CSL-JSON Output</h2>
+        <pre id="output">[]</pre>
+        <h2>Failures</h2>
+        <pre id="errors">[]</pre>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

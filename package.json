@@ -1,0 +1,24 @@
+{
+  "name": "link2ref",
+  "version": "0.1.0",
+  "description": "MVP browser-based tool to convert links/DOIs/PDFs to CSL-JSON",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": [
+    "csl-json",
+    "doi",
+    "pdf",
+    "bibliography"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@citation-js/core": "^0.7.18",
+    "@citation-js/plugin-csl": "^0.7.18",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.2"
+  }
+}
