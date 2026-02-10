@@ -94,44 +94,52 @@ function formatAbntFallback(item) {
   return `${authors}${title}.${yearPart}${urlPart}`.trim();
 }
 
+async function mapWithConcurrency(items, limit, mapper) {
+  const result = new Array(items.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      // eslint-disable-next-line no-await-in-loop
+      result[index] = await mapper(items[index], index);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return result;
+}
+
 export async function formatOutput(cslItems, format) {
   if (format === OUTPUT_FORMATS.APA) {
-    const entries = [];
-    for (const item of cslItems) {
+    return mapWithConcurrency(cslItems, 6, async (item) => {
       const doi = extractDoi(item);
       if (doi) {
         try {
-          // Prefer DOI-based bibliography formatting for higher-fidelity APA output.
-          // eslint-disable-next-line no-await-in-loop
-          entries.push(await formatApaFromDoi(doi));
-          continue;
+          return await formatApaFromDoi(doi);
         } catch {
           // Fallback below.
         }
       }
-      // eslint-disable-next-line no-await-in-loop
-      entries.push(await formatApaFallback(item));
-    }
-    return entries;
+      return formatApaFallback(item);
+    });
   }
 
   if (format === OUTPUT_FORMATS.ABNT) {
-    const entries = [];
-    for (const item of cslItems) {
+    return mapWithConcurrency(cslItems, 6, async (item) => {
       const doi = extractDoi(item);
       if (doi) {
         try {
-          // Prefer DOI-based bibliography formatting for higher-fidelity ABNT output.
-          // eslint-disable-next-line no-await-in-loop
-          entries.push(await formatAbntFromDoi(doi));
-          continue;
+          return await formatAbntFromDoi(doi);
         } catch {
           // Fallback below.
         }
       }
-      entries.push(formatAbntFallback(item));
-    }
-    return entries;
+      return formatAbntFallback(item);
+    });
   }
 
   return cslItems;
