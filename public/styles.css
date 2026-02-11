@@ -348,6 +348,21 @@ pre {
   color: var(--ink);
 }
 
+.credits {
+  margin-top: 0.5rem;
+}
+
+.credits a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.credits a:hover {
+  color: var(--ink);
+}
+
 @media (max-width: 740px) {
   .shell {
     margin: 1.1rem auto;
