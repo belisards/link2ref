@@ -34,6 +34,15 @@ Browser-based tool that converts links, DOIs, and PDFs into structured citation 
 - Publisher extraction from text: "published by", copyright, ©
   - Requires capital letter start, min 2 words, no semicolons
 
+## AI-Powered PDF Extraction
+- Optional AI extraction via any OpenAI-compatible API (Groq, OpenRouter, Gemini, Ollama, etc.)
+- Three-tier fallback: DOI→Crossref (best) > AI extraction (if configured) > regex heuristics (existing)
+- Activated by setting `AI_API_URL` env var (e.g. `https://api.groq.com/openai/v1/chat/completions`)
+- Optional `AI_API_KEY` for authenticated providers, `AI_MODEL` to override model (default: gpt-4o-mini)
+- Timeout: 15 seconds (configurable via `AI_TIMEOUT_MS` env var)
+- All AI failures degrade gracefully to existing regex extraction
+- Module: `src/ai-extractor.js` — single export `extractMetadataWithAI(pdfText)`
+
 ## Extraction Rules Guidelines
 - NEVER hardcode personal names, specific document IDs, or institution-specific strings
 - All skip/match rules must be generic patterns (e.g. academic titles, affiliation patterns)

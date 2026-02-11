@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import { getDocumentProxy, extractText } from "unpdf";
 import { baseItem, makeId } from "./csl.js";
+import { extractMetadataWithAI } from "./ai-extractor.js";
 
 const DOI_PATTERN = /10\.\d{4,9}\/[-._;()\/:A-Z0-9]+/i;
 const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
@@ -255,6 +256,11 @@ function extractPublisherFromText(text) {
   return undefined;
 }
 
+function mapDocType(t) {
+  const m = { article: "article-journal", book: "book", thesis: "thesis" };
+  return m[t] || "report";
+}
+
 async function parsePdfToCsl(url, buffer) {
   let pages = [];
   let pdfText = "";
@@ -282,6 +288,23 @@ async function parsePdfToCsl(url, buffer) {
     } catch {
       // Fallback when DOI metadata cannot be resolved.
     }
+  }
+
+  // AI-powered extraction attempt (falls back to regex heuristics on failure)
+  const aiMetadata = await extractMetadataWithAI(earlyText);
+  if (aiMetadata?.title) {
+    return baseItem({
+      id: makeId("pdf"),
+      type: mapDocType(aiMetadata.documentType),
+      title: aiMetadata.title,
+      author: aiMetadata.authors || undefined,
+      issued: aiMetadata.year ? String(aiMetadata.year) : undefined,
+      accessed: new Date().toISOString().slice(0, 10),
+      URL: url,
+      DOI: doi || undefined,
+      publisher: aiMetadata.publisher || undefined,
+      abstract: aiMetadata.abstract || undefined,
+    });
   }
 
   const title = extractTitleFromPages(pages) || "Untitled PDF";
