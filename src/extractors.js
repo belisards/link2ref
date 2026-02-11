@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { getDocumentProxy, extractText } from "unpdf";
 import { baseItem, makeId } from "./csl.js";
 
-const DOI_PATTERN = /10\.\d{4,9}\/[-._;()\/:A-Z0-9]+/i;
+const DOI_PATTERN = /\b10\.\d{2,9}\/[-._;()/:A-Z0-9]+(?=[.,;!?\s]|$)/i;
 const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
 
 function normalizeUrl(input) {
@@ -25,8 +25,10 @@ function pickMeta($, ...names) {
 }
 
 function detectTypeFromUrl(url, contentType) {
+  if (contentType?.includes("application/pdf")) return "pdf";
   const lower = url.toLowerCase();
-  if (contentType?.includes("application/pdf") || lower.endsWith(".pdf")) return "pdf";
+  const pathname = (() => { try { return new URL(lower).pathname; } catch { return lower; } })();
+  if (pathname.endsWith(".pdf")) return "pdf";
   if (lower.includes("doi.org/")) return "doi";
   return "html";
 }
@@ -174,6 +176,14 @@ function extractTitleFromPages(pages) {
     if (/^(abstract|introduction|keywords|table of contents|copyright|doi:|http|in this\s)/i.test(line)) break;
     if (/^summary$/i.test(line)) break;
     if (/^with\s+(contributions|feedback|support)/i.test(line)) break;
+    // Stop at email-like lines (usually after authors)
+    if (/^\*?\s*\S+@\S+\.\S+/.test(line)) break;
+    // Skip document type labels
+    if (/^(research\s+article|working\s+paper|technical\s+report|white\s+paper|discussion\s+paper|policy\s+brief|case\s+study|review\s+article|original\s+(research|article)|brief\s+(communication|report))s?$/i.test(line)) continue;
+    // Stop at author-like lines (names with superscript numbers, commas, ORCID markers)
+    if (/^[A-Z][a-z]+\s/.test(line) && /\d/.test(line) && /,/.test(line) && (line.match(/[A-Z][a-z]{2,}/g) || []).length >= 3) break;
+    // Stop at "by Name, Name" lines
+    if (/^by\s+[A-Z]/i.test(line) && /,/.test(line)) break;
     // Skip author-like lines
     if (/^(authors?|by)\s*:/i.test(line)) continue;
     if (/\b(Dr\.?\s|Prof\.?\s|Ph\.?D)/.test(line)) continue;
@@ -181,7 +191,7 @@ function extractTitleFromPages(pages) {
     if (/^(The\s+)?(University|Institute|College|School|Department)\s+of\b/i.test(line)) continue;
     // Skip institutional boilerplate and identifiers
     if (/^[A-Z]+\s*\|/.test(line)) continue;
-    if (/^[A-Z]{2,}\s+\d/.test(line)) continue;
+    if (/^[A-Z]{2,}[\s/]+\d/.test(line)) continue;
     // Skip spaced-out decorative text like "J U N E 2 0 2 3"
     if (/^[A-Z]\s+[A-Z]\s+[A-Z]/.test(line)) continue;
     // Skip short fragments, numbers, dates
@@ -202,6 +212,10 @@ function extractAuthorsFromPages(pages) {
   const authors = [];
 
   for (const line of lines.slice(1, 15)) {
+    // Stop at body text markers
+    if (/^(abstract|introduction|keywords|doi:|http)/i.test(line)) break;
+    if (/^\*?\s*\S+@\S+\.\S+/.test(line)) break;
+
     // "Author: Name" or "Authors: Name; Name"
     const prefixMatch = line.match(/^authors?\s*:\s*(.+)/i);
     if (prefixMatch) {
@@ -209,10 +223,47 @@ function extractAuthorsFromPages(pages) {
       if (names.length > 3) return names;
     }
 
+    // "by Name, Name, and Name" (e.g. IMF working papers)
+    const byMatch = line.match(/^by\s+(.+)/i);
+    if (byMatch) {
+      const names = byMatch[1].replace(/\s*\d+\s*/g, "").trim();
+      if (names.length > 3 && /[A-Z]/.test(names)) {
+        // May span multiple lines — collect and continue
+        authors.push(names.replace(/,\s*$/, ""));
+        continue;
+      }
+    }
+
+    // Continue collecting multi-line "by" authors (short lines of names with commas/and)
+    if (authors.length && /^(and\s+)?[A-Z][a-z]+(\s+[A-Z]\.?)*\s+[A-Z][a-z]{2,}/i.test(line) && line.length < 80) {
+      const cleaned = line.replace(/\s*\d+\s*/g, "").trim();
+      if (cleaned.length > 3 && !/\b(University|Institute|College|School|Department|Working|Papers?|describe|research)\b/i.test(cleaned)) {
+        authors.push(cleaned);
+        continue;
+      }
+    }
+
     // Lines with academic titles (e.g. "Dr. Name and Prof. Name")
     if (/\b(Dr\.?\s|Prof\.?\s)\s*[A-Z]/.test(line) && !/^with\b/i.test(line)) {
       const cleaned = line.replace(/\b(Dr\.?\s*|Prof\.?\s*)/g, "").trim();
       if (cleaned.length > 3 && !/(University|Institute|College|School)\b/i.test(cleaned)) return cleaned;
+    }
+
+    // Academic author lines: "Name1,2*, Name3, Name4" (superscript numbers, ORCID markers)
+    // Must contain digits or footnote markers adjacent to names to distinguish from regular text
+    if (/^[A-Z][a-z]+\s/.test(line) && /[A-Z][a-z]+\s*(?:ID)?\d/.test(line) && /,/.test(line)) {
+      const cleaned = line
+        .replace(/ID\d*/g, "")       // Remove ORCID markers
+        .replace(/[*†‡§¶#]+/g, "")   // Remove footnote markers
+        .replace(/\d+/g, "")         // Remove all digits (superscripts)
+        .replace(/,(\s*,)+/g, ",")   // Collapse multiple commas
+        .replace(/\s+/g, " ")
+        .replace(/,\s*$/, "")        // Remove trailing comma
+        .trim();
+      const nameCount = (cleaned.match(/[A-Z][a-z]+/g) || []).length;
+      if (nameCount >= 3 && !/(University|Institute|College|School|Department|Abstract)\b/i.test(cleaned)) {
+        return cleaned;
+      }
     }
 
     // "Name . University of X" — collect consecutive author-affiliation lines
@@ -225,11 +276,42 @@ function extractAuthorsFromPages(pages) {
       }
     }
 
-    // If we were collecting dot-affiliation authors and hit a non-author line, stop
+    // If we were collecting authors and hit a non-author line, stop
     if (authors.length) break;
   }
 
-  return authors.length ? authors.join("; ") : null;
+  if (authors.length) {
+    return authors.join(", ").replace(/,\s*,/g, ",").replace(/,\s*$/, "").trim();
+  }
+  return null;
+}
+
+function extractYearFromPages(pages) {
+  if (!pages || !pages.length) return null;
+  const earlyText = pages.slice(0, 2).join("\n");
+  const lines = earlyText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  // Look for explicit date patterns in the first 2 pages
+  for (const line of lines.slice(0, 20)) {
+    // "Published: 2023-05-01" or "Date: May 2023"
+    const pubMatch = line.match(/(?:published|date|dated|issued|received|accepted)\s*:?\s*.*\b((?:19|20)\d{2})\b/i);
+    if (pubMatch) return pubMatch[1];
+
+    // Month + Year: "January 2023", "Jan 2023", "June, 2023"
+    const monthYear = line.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?,?\s*((?:19|20)\d{2})\b/i);
+    if (monthYear) return monthYear[1];
+  }
+
+  // Copyright year: "© 2023" or "Copyright 2023"
+  const copyrightMatch = earlyText.match(/(?:©|copyright)\s*((?:19|20)\d{2})\b/i);
+  if (copyrightMatch) return copyrightMatch[1];
+
+  // Standalone year in first 5 lines (common in reports/working papers)
+  for (const line of lines.slice(0, 5)) {
+    if (/^((?:19|20)\d{2})$/.test(line)) return line;
+  }
+
+  return null;
 }
 
 function extractPublisherFromText(text) {
@@ -274,8 +356,7 @@ async function parsePdfToCsl(url, buffer) {
     pdfText = buffer.toString("latin1").slice(0, 200000);
   }
 
-  const earlyText = pages.length ? pages.slice(0, 2).join("\n") : pdfText;
-  const doi = extractDoiFromText(earlyText);
+  const doi = extractDoiFromText(pdfText);
   if (doi) {
     try {
       return await fetchCrossrefCsl(doi);
@@ -286,6 +367,7 @@ async function parsePdfToCsl(url, buffer) {
 
   const title = extractTitleFromPages(pages) || "Untitled PDF";
   const author = extractAuthorsFromPages(pages) || undefined;
+  const issued = extractYearFromPages(pages) || undefined;
   const publisher = extractPublisherFromText(pdfText) || undefined;
 
   return baseItem({
@@ -293,6 +375,7 @@ async function parsePdfToCsl(url, buffer) {
     type: "report",
     title,
     author,
+    issued,
     accessed: new Date().toISOString().slice(0, 10),
     URL: url,
     DOI: doi || undefined,
