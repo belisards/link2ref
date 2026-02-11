@@ -328,6 +328,26 @@ pre {
   grid-column: 1 / -1;
 }
 
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-top: 0.5rem;
+}
+
+.footer-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-links a:hover {
+  color: var(--ink);
+}
+
 @media (max-width: 740px) {
   .shell {
     margin: 1.1rem auto;
