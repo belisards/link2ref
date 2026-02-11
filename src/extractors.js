@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { getDocumentProxy, extractText } from "unpdf";
 import { baseItem, makeId } from "./csl.js";
 
 const DOI_PATTERN = /10\.\d{4,9}\/[-._;()\/:A-Z0-9]+/i;
@@ -162,10 +163,82 @@ async function parseHtmlToCsl(url, html) {
   });
 }
 
-async function parsePdfToCsl(url, buffer) {
-  const text = buffer.toString("latin1").slice(0, 200000);
-  const doi = extractDoiFromText(text);
+function extractTitleFromPages(pages) {
+  if (!pages || !pages.length) return null;
+  const firstPage = pages[0] || "";
+  const lines = firstPage.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
+  const titleLines = [];
+  for (const line of lines.slice(0, 8)) {
+    if (/^(abstract|introduction|keywords|table of contents|copyright|doi:|http)/i.test(line)) break;
+    if (/^[A-Z]\s+[A-Z]\s+[A-Z]/.test(line)) continue;
+    if (line.length < 3) continue;
+    titleLines.push(line);
+  }
+
+  const title = titleLines.join(" ").replace(/\s+/g, " ").trim();
+  return title.length > 5 ? title : null;
+}
+
+function extractAuthorsFromPages(pages) {
+  if (!pages || !pages.length) return null;
+  const firstPage = pages[0] || "";
+  const lines = firstPage.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const AUTHOR_LINE = /^(?:[A-Z][a-z]{1,20}\s+){1,3}[A-Z][a-z]{1,20}(?:\s*[,;&]\s*(?:[A-Z][a-z]{1,20}\s+){1,3}[A-Z][a-z]{1,20})+$/;
+  for (const line of lines.slice(1, 12)) {
+    if (AUTHOR_LINE.test(line)) return line;
+  }
+  return null;
+}
+
+function extractPublisherFromText(text, url) {
+  if (text) {
+    const patterns = [
+      /(?:published|produced|prepared|issued)\s+by\s+(.{3,80}?)(?:\.|,|\n|$)/i,
+      /©\s*\d{4}\s+(.{3,80}?)(?:\.|,|\n|$)/i,
+      /copyright\s+(?:\d{4}\s+)?(.{3,80}?)(?:\.|,|\n|$)/i,
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const pub = match[1].replace(/\s+/g, " ").trim();
+        if (pub.length > 2 && pub.length < 80) return pub;
+      }
+    }
+  }
+
+  if (url) {
+    try {
+      const hostname = new URL(url).hostname.replace(/^www\./, "");
+      const parts = hostname.split(".");
+      const domain = parts.length >= 2 ? parts.slice(-2).join(".") : hostname;
+      if (domain.length > 3 && !/\.com$|\.net$|\.org$|\.io$/.test(domain)) return undefined;
+    } catch {}
+  }
+
+  return undefined;
+}
+
+async function parsePdfToCsl(url, buffer) {
+  let pages = [];
+  let pdfText = "";
+
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    try {
+      const result = await extractText(pdf, { mergePages: false });
+      pages = result.text || [];
+      pdfText = pages.join("\n");
+    } catch {
+      // Text extraction failed, continue with empty text.
+    }
+    pdf.destroy();
+  } catch {
+    // PDF parsing failed entirely — fall back to raw binary scan for DOI.
+    pdfText = buffer.toString("latin1").slice(0, 200000);
+  }
+
+  const doi = extractDoiFromText(pdfText);
   if (doi) {
     try {
       return await fetchCrossrefCsl(doi);
@@ -174,19 +247,19 @@ async function parsePdfToCsl(url, buffer) {
     }
   }
 
-  const titleGuess = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 12 && line.length < 180)
-    .slice(0, 25)
-    .find((line) => /^[A-Z0-9][\w\s,:'"()\-]{10,}$/.test(line));
+  const title = extractTitleFromPages(pages) || "Untitled PDF";
+  const author = extractAuthorsFromPages(pages) || undefined;
+  const publisher = extractPublisherFromText(pdfText, url) || undefined;
 
   return baseItem({
     id: makeId("pdf"),
     type: "report",
-    title: titleGuess || "Untitled PDF Report",
+    title,
+    author,
+    accessed: new Date().toISOString().slice(0, 10),
     URL: url,
     DOI: doi || undefined,
+    publisher,
   });
 }
 
