@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { getDocumentProxy, extractText } from "unpdf";
 import { baseItem, makeId } from "./csl.js";
 
-const DOI_PATTERN = /\b10\.\d{2,9}\/[-._;()/:A-Z0-9]+(?=[.,;!?\s]|$)/i;
+const DOI_PATTERN = /\b10\.\d{2,9}\/[-._;()/:A-Z0-9]+(?=[\s.,;!?\)\]\}"'>]|$)/i;
 const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
 
 function normalizeUrl(input) {
@@ -291,15 +291,20 @@ function extractYearFromPages(pages) {
   const earlyText = pages.slice(0, 2).join("\n");
   const lines = earlyText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  // Look for explicit date patterns in the first 2 pages
+  // Look for explicit date patterns in the first 2 pages (prefer published/issued over received/accepted)
   for (const line of lines.slice(0, 20)) {
-    // "Published: 2023-05-01" or "Date: May 2023"
-    const pubMatch = line.match(/(?:published|date|dated|issued|received|accepted)\s*:?\s*.*\b((?:19|20)\d{2})\b/i);
+    const pubMatch = line.match(/(?:published|date|dated|issued)\s*:?\s*.*\b((?:19|20)\d{2})\b/i);
     if (pubMatch) return pubMatch[1];
 
     // Month + Year: "January 2023", "Jan 2023", "June, 2023"
     const monthYear = line.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?,?\s*((?:19|20)\d{2})\b/i);
     if (monthYear) return monthYear[1];
+  }
+
+  // Fallback: received/accepted dates (less preferred than published)
+  for (const line of lines.slice(0, 20)) {
+    const receivedMatch = line.match(/(?:received|accepted)\s*:?\s*.*\b((?:19|20)\d{2})\b/i);
+    if (receivedMatch) return receivedMatch[1];
   }
 
   // Copyright year: "© 2023" or "Copyright 2023"
