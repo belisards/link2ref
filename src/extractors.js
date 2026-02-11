@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { baseItem, makeId } from "./csl.js";
 
 const DOI_PATTERN = /10\.\d{4,9}\/[-._;()\/:A-Z0-9]+/i;
+const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
 
 function normalizeUrl(input) {
   const trimmed = input.trim();
@@ -46,6 +47,52 @@ async function fetchCrossrefCsl(doiOrUrl) {
   const csl = await res.json();
   if (!csl.id) csl.id = makeId("doi");
   return csl;
+}
+
+function extractArxivId(url) {
+  const match = url.match(ARXIV_PATTERN);
+  return match ? match[1] + (match[2] || "") : null;
+}
+
+async function fetchArxivCsl(arxivId) {
+  const endpoint = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`;
+  const res = await fetch(endpoint, {
+    headers: { "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)" },
+  });
+
+  if (!res.ok) throw new Error(`arXiv API failed (${res.status})`);
+
+  const xml = await res.text();
+  const $ = cheerio.load(xml, { xmlMode: true });
+  const entry = $("entry").first();
+  if (!entry.length) throw new Error("arXiv entry not found");
+
+  const title = entry.find("title").first().text().replace(/\s+/g, " ").trim();
+  if (!title || title === "Error") throw new Error("arXiv entry not found");
+
+  const authors = entry
+    .find("author name")
+    .map((_, el) => $(el).text().trim())
+    .get();
+
+  const published = entry.find("published").first().text().trim();
+  const summary = entry.find("summary").first().text().replace(/\s+/g, " ").trim();
+
+  const doiLink = entry.find('link[title="doi"]');
+  const doi = doiLink.length ? doiLink.attr("href")?.replace(/^https?:\/\/doi\.org\//i, "") : undefined;
+
+  return baseItem({
+    id: makeId("arxiv"),
+    type: "article",
+    title,
+    author: authors.join("; "),
+    issued: published ? published.slice(0, 10) : undefined,
+    accessed: new Date().toISOString().slice(0, 10),
+    URL: `https://arxiv.org/abs/${arxivId}`,
+    DOI: doi || `10.48550/arXiv.${arxivId}`,
+    publisher: "arXiv",
+    abstract: summary || undefined,
+  });
 }
 
 function extractDoiFromText(text) {
@@ -158,6 +205,24 @@ export async function parseLink(input) {
         return { ok: true, input, normalized, csl, sourceType: "doi" };
       } catch {
         // Continue and try direct URL fetch when DOI provider lookup fails.
+      }
+    }
+
+    const arxivId = extractArxivId(normalized);
+    if (arxivId) {
+      const arxivDoi = `10.48550/arXiv.${arxivId}`;
+      try {
+        const csl = await fetchCrossrefCsl(arxivDoi);
+        csl.URL = normalized;
+        return { ok: true, input, normalized, csl, sourceType: "arxiv" };
+      } catch {
+        // DOI lookup failed, try arXiv Atom API.
+      }
+      try {
+        const csl = await fetchArxivCsl(arxivId);
+        return { ok: true, input, normalized, csl, sourceType: "arxiv" };
+      } catch {
+        // Fallback to generic HTML extraction below.
       }
     }
 
