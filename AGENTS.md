@@ -17,6 +17,28 @@ Browser-based tool that converts links, DOIs, and PDFs into structured citation 
 - DOI citations prefer upstream formatting; web sources use citation-js fallback
 - `formatAbntFallback` includes "Acesso em:" for accessed dates
 
+## PDF Extraction
+- Uses `unpdf` library for proper text extraction (replaces raw binary scan)
+- Two-tier fallback: DOI→Crossref (best) > content-based heuristics (fallback)
+- DOI search limited to first 2 pages to avoid false matches from reference lists
+- Title extraction from page 1 text with generic skip rules:
+  - Stops at body text markers (abstract, introduction, summary, etc.)
+  - Skips lines with academic titles (Dr., Prof., Ph.D)
+  - Skips affiliation lines (University of..., Institute of...)
+  - Skips lines matching `ALLCAPS |` or `ALLCAPS digit` patterns
+  - Caps at 200 chars; falls back to first line if too long
+- Author extraction patterns (all generic, no hardcoded names):
+  - "Author:"/"Authors:" prefix lines (strips secondary role labels after semicolons)
+  - Lines with academic titles — strips Dr./Prof. prefix, returns cleaned name
+  - "Name . Institution" dot-separated affiliation lines (collects consecutive)
+- Publisher extraction from text: "published by", copyright, ©
+  - Requires capital letter start, min 2 words, no semicolons
+
+## Extraction Rules Guidelines
+- NEVER hardcode personal names, specific document IDs, or institution-specific strings
+- All skip/match rules must be generic patterns (e.g. academic titles, affiliation patterns)
+- When adding new heuristics, use structural patterns not content-specific strings
+
 ## Testing
 - E2E tests use Playwright (chromium only)
 - Run: `npm run test:e2e`
