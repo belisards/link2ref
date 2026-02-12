@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 ## [Unreleased]
 
 ### Added
-- Browser MVP for converting links (HTML, PDF/report PDF, DOI) into citations.
+- Browser tool for converting links (HTML, PDF/report PDF, DOI) into citations.
 - Batch input workflow with progress indicator and failure reporting.
 - Output formats: `APA` (default), `ABNT`, and `CSL-JSON`.
 - Post-query reformat endpoint: `POST /api/format`.

@@ -30,7 +30,7 @@ async function formatApaFromDoi(doi) {
   const res = await fetch(endpoint, {
     headers: {
       Accept: "text/x-bibliography; style=apa",
-      "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)",
+      "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
   });
 
@@ -46,7 +46,7 @@ async function formatAbntFromDoi(doi) {
   const res = await fetch(endpoint, {
     headers: {
       Accept: "text/x-bibliography; style=associacao-brasileira-de-normas-tecnicas",
-      "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)",
+      "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
   });
 

@@ -39,7 +39,7 @@ async function fetchCrossrefCsl(doiOrUrl) {
   const res = await fetch(endpoint, {
     headers: {
       Accept: "application/vnd.citationstyles.csl+json",
-      "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)",
+      "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
   });
 
@@ -60,7 +60,7 @@ function extractArxivId(url) {
 async function fetchArxivCsl(arxivId) {
   const endpoint = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`;
   const res = await fetch(endpoint, {
-    headers: { "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)" },
+    headers: { "User-Agent": "link2ref/0.1 (mailto:example@example.com)" },
   });
 
   if (!res.ok) throw new Error(`arXiv API failed (${res.status})`);
@@ -432,7 +432,7 @@ export async function parseLink(input) {
     let response = await fetch(normalized, {
       headers: {
         Accept: "text/html,application/pdf,application/xhtml+xml,*/*",
-        "User-Agent": "link2ref-mvp/0.1 (mailto:example@example.com)",
+        "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
       },
       redirect: "follow",
     });

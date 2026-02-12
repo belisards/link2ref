@@ -1,7 +1,7 @@
 {
   "name": "link2ref",
   "version": "0.1.0",
-  "description": "MVP browser-based tool to convert links/DOIs/PDFs to CSL-JSON",
+  "description": "Browser-based tool to convert links/DOIs/PDFs to CSL-JSON",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

@@ -111,6 +111,6 @@ Tests cover news URL citation quality, DOI regression, format switching, and bat
 
 ## Notes
 
-- This is an MVP and uses heuristic extraction for some PDFs.
+- Uses heuristic extraction for some PDFs.
 - Some websites block bots or omit metadata; those will return partial records or errors.
 - DOI lookups are dependent on upstream DOI providers and rate limits.
