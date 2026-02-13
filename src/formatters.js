@@ -15,6 +15,17 @@ export function normalizeFormat(input) {
   return OUTPUT_FORMATS.APA;
 }
 
+function decodeHtmlEntities(text) {
+  return text
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 function extractDoi(item) {
   if (!item) return null;
   if (item.DOI) return String(item.DOI);
@@ -38,7 +49,7 @@ async function formatApaFromDoi(doi) {
     throw new Error(`DOI APA lookup failed (${res.status})`);
   }
 
-  return (await res.text()).trim();
+  return decodeHtmlEntities((await res.text()).trim());
 }
 
 async function formatAbntFromDoi(doi) {
@@ -54,7 +65,7 @@ async function formatAbntFromDoi(doi) {
     throw new Error(`DOI ABNT lookup failed (${res.status})`);
   }
 
-  return (await res.text()).trim();
+  return decodeHtmlEntities((await res.text()).trim());
 }
 
 async function formatApaFallback(item) {
