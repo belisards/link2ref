@@ -30,7 +30,10 @@
 
         <div id="progressWrap" class="hidden">
           <div id="uniqueCount" class="status">Unique links identified: 0</div>
-          <div class="status" id="progressText">Processing 0/0</div>
+          <div class="progress-row">
+            <div class="status" id="progressText">Processing 0/0</div>
+            <button id="cancel" class="ghost cancel-btn">Cancel</button>
+          </div>
           <progress id="progressBar" value="0" max="100"></progress>
         </div>
 
@@ -58,7 +61,10 @@
             <option value="alphabetical" selected>Alphabetical (default)</option>
             <option value="original">Original input order</option>
           </select>
-          <button id="download" class="ghost">Download Output 📥</button>
+          <div class="output-actions">
+            <button id="copy" class="ghost">Copy</button>
+            <button id="download" class="ghost">Download</button>
+          </div>
         </div>
         <pre id="output">[]</pre>
       </section>

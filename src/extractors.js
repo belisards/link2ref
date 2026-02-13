@@ -4,6 +4,8 @@ import { baseItem, makeId } from "./csl.js";
 
 const DOI_PATTERN = /\b10\.\d{2,9}\/[-._;()/:A-Z0-9]+(?=[\s.,;!?\)\]\}"'>]|$)/i;
 const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
+const FETCH_TIMEOUT_MS = 30000;
+const PDF_MAX_BYTES = 20 * 1024 * 1024; // 20 MB
 
 function normalizeUrl(input) {
   const trimmed = input.trim();
@@ -41,6 +43,7 @@ async function fetchCrossrefCsl(doiOrUrl) {
       Accept: "application/vnd.citationstyles.csl+json",
       "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -61,6 +64,7 @@ async function fetchArxivCsl(arxivId) {
   const endpoint = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`;
   const res = await fetch(endpoint, {
     headers: { "User-Agent": "link2ref/0.1 (mailto:example@example.com)" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) throw new Error(`arXiv API failed (${res.status})`);
@@ -435,6 +439,7 @@ export async function parseLink(input) {
         "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
       },
       redirect: "follow",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
 
     if (response.status === 403) {
@@ -444,6 +449,7 @@ export async function parseLink(input) {
           "User-Agent": "Mozilla/5.0 (compatible; link2ref/0.1)",
         },
         redirect: "follow",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     }
 
@@ -464,7 +470,14 @@ export async function parseLink(input) {
 
     let csl;
     if (sourceType === "pdf") {
+      const contentLength = Number(response.headers.get("content-length") || 0);
+      if (contentLength > PDF_MAX_BYTES) {
+        throw new Error(`PDF too large (${Math.round(contentLength / 1024 / 1024)}MB, limit ${PDF_MAX_BYTES / 1024 / 1024}MB)`);
+      }
       const arrayBuffer = await response.arrayBuffer();
+      if (arrayBuffer.byteLength > PDF_MAX_BYTES) {
+        throw new Error(`PDF too large (${Math.round(arrayBuffer.byteLength / 1024 / 1024)}MB, limit ${PDF_MAX_BYTES / 1024 / 1024}MB)`);
+      }
       csl = await parsePdfToCsl(normalized, Buffer.from(arrayBuffer));
     } else {
       const html = await response.text();

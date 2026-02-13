@@ -1,6 +1,8 @@
 import { Cite } from "@citation-js/core";
 import "@citation-js/plugin-csl";
 
+const FETCH_TIMEOUT_MS = 15000;
+
 export const OUTPUT_FORMATS = {
   APA: "apa",
   ABNT: "abnt",
@@ -43,6 +45,7 @@ async function formatApaFromDoi(doi) {
       Accept: "text/x-bibliography; style=apa",
       "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {
@@ -59,6 +62,7 @@ async function formatAbntFromDoi(doi) {
       Accept: "text/x-bibliography; style=associacao-brasileira-de-normas-tecnicas",
       "User-Agent": "link2ref/0.1 (mailto:example@example.com)",
     },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
 
   if (!res.ok) {

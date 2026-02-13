@@ -3,6 +3,15 @@ function normalizeText(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+const INSTITUTIONAL_KEYWORDS = /\b(organization|organisation|commission|committee|institute|institution|foundation|association|ministry|department|agency|council|authority|bureau|office|fund|bank|university|college|school|corporation|company|group|center|centre|network|program|programme|project|service|society|academy|board|division)\b/i;
+
+function isInstitutionalName(name) {
+  if (INSTITUTIONAL_KEYWORDS.test(name)) return true;
+  // All-uppercase acronyms like "WHO", "IMF", "UNESCO" (3+ letters)
+  if (/^[A-Z]{3,}$/.test(name.trim())) return true;
+  return false;
+}
+
 function splitAuthors(value) {
   if (!value) return [];
 
@@ -12,6 +21,8 @@ function splitAuthors(value) {
     .filter(Boolean);
 
   return candidates.map((name) => {
+    if (isInstitutionalName(name)) return { literal: name };
+
     if (name.includes(",")) {
       const [family, given] = name.split(",").map((part) => normalizeText(part));
       return { family, given };
@@ -35,6 +46,12 @@ function parseDate(value) {
   const isoMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (isoMatch) {
     return { "date-parts": [[Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3])]] };
+  }
+
+  // Year-month: 2025-06
+  const ymMatch = str.match(/^(\d{4})-(\d{1,2})$/);
+  if (ymMatch) {
+    return { "date-parts": [[Number(ymMatch[1]), Number(ymMatch[2])]] };
   }
 
   // Year-only fallback
