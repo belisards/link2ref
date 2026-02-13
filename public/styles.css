@@ -274,12 +274,31 @@ button.ghost:hover {
   margin-bottom: 0.82rem;
 }
 
+.output-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
 .output-head {
   margin-bottom: 0.85rem;
 }
 
 .output-head p {
   font-size: 0.9rem;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cancel-btn {
+  width: auto;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
 }
 
 progress {

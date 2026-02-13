@@ -17,6 +17,7 @@ let lastOutput = [];
 let lastSuccessEntries = [];
 let lastErrorEntries = [];
 let lastOriginalUniqueLinks = [];
+let abortController = null;
 const formattedCacheByFormat = {
   apa: new Map(),
   abnt: new Map(),
@@ -176,6 +177,10 @@ async function run() {
     return;
   }
 
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+  const { signal } = abortController;
+
   statusEl.textContent = `Processing ${links.length} unique link(s)...`;
   renderUniqueCount();
   showProgress(0, links.length);
@@ -191,6 +196,7 @@ async function run() {
     };
 
     for (let i = 0; i < links.length; i += 1) {
+      if (signal.aborted) break;
       const link = links[i];
       // Process one link at a time so progress reflects real completion.
       // eslint-disable-next-line no-await-in-loop
@@ -198,6 +204,7 @@ async function run() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ links: [link], format: "csl_json" }),
+        signal,
       });
       // eslint-disable-next-line no-await-in-loop
       const data = await res.json();
@@ -216,12 +223,25 @@ async function run() {
     lastSuccessEntries = aggregated.results.filter((item) => item.ok);
     lastErrorEntries = aggregated.results.filter((item) => !item.ok);
     await refreshOutputFromCurrentData(format);
-    statusEl.textContent = `Done. ${aggregated.success}/${aggregated.total} converted, ${aggregated.failed} failed.`;
+
+    if (signal.aborted) {
+      statusEl.textContent = `Cancelled. ${aggregated.success}/${aggregated.total} converted before cancellation.`;
+    } else {
+      statusEl.textContent = `Done. ${aggregated.success}/${aggregated.total} converted, ${aggregated.failed} failed.`;
+    }
   } catch (error) {
-    statusEl.textContent = `Error: ${error.message}`;
-    lastErrors = [{ input: null, normalized: null, error: error.message }];
-    renderFailures();
+    if (error.name === "AbortError") {
+      statusEl.textContent = "Processing cancelled.";
+      if (lastSuccessEntries.length) {
+        await refreshOutputFromCurrentData(format);
+      }
+    } else {
+      statusEl.textContent = `Error: ${error.message}`;
+      lastErrors = [{ input: null, normalized: null, error: error.message }];
+      renderFailures();
+    }
   } finally {
+    abortController = null;
     hideProgress();
   }
 }
@@ -258,9 +278,27 @@ function download() {
   URL.revokeObjectURL(url);
 }
 
+async function copyOutput() {
+  const isTextStyle = lastFormat === "apa" || lastFormat === "abnt";
+  const contents = isTextStyle ? lastOutput.join("\n\n") : JSON.stringify(lastOutput, null, 2);
+  try {
+    await navigator.clipboard.writeText(contents);
+    const btn = document.getElementById("copy");
+    const original = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  } catch {
+    statusEl.textContent = "Copy failed — use Ctrl+C instead.";
+  }
+}
+
 document.getElementById("run").addEventListener("click", run);
 document.getElementById("clear").addEventListener("click", clearAll);
+document.getElementById("copy").addEventListener("click", copyOutput);
 document.getElementById("download").addEventListener("click", download);
+document.getElementById("cancel").addEventListener("click", () => {
+  if (abortController) abortController.abort();
+});
 formatEl.addEventListener("change", async () => {
   if (!lastSuccessEntries.length) return;
   statusEl.textContent = `Reformatting output to ${formatEl.value.toUpperCase()}...`;
