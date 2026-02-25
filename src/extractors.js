@@ -169,6 +169,13 @@ async function parseHtmlToCsl(url, html) {
   });
 }
 
+function isPdfGarbage(text) {
+  if (!text || text.length < 10) return false;
+  const objRefs = (text.match(/\b\d+\s+\d+\s+R\b/g) || []).length;
+  const words = (text.match(/\S+/g) || []).length;
+  return words > 5 && objRefs / words > 0.25;
+}
+
 function extractTitleFromPages(pages) {
   if (!pages || !pages.length) return null;
   const firstPage = pages[0] || "";
@@ -176,6 +183,8 @@ function extractTitleFromPages(pages) {
 
   const titleLines = [];
   for (const line of lines.slice(0, 12)) {
+    // Skip PDF cross-reference/object reference lines (e.g. "17 0 R 18 0 R")
+    if (/^(\d+\s+\d+\s+R\s*)+$/.test(line)) continue;
     // Stop at body text markers
     if (/^(abstract|introduction|keywords|table of contents|copyright|doi:|http|in this\s)/i.test(line)) break;
     if (/^summary$/i.test(line)) break;
@@ -363,6 +372,12 @@ async function parsePdfToCsl(url, buffer) {
   } catch {
     // PDF parsing failed entirely — fall back to raw binary scan for DOI.
     pdfText = buffer.toString("latin1").slice(0, 200000);
+  }
+
+  // Discard extracted text if it looks like raw PDF syntax (e.g. object references)
+  if (isPdfGarbage(pdfText)) {
+    pages = [];
+    pdfText = "";
   }
 
   const doi = extractDoiFromText(pdfText);
