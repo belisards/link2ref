@@ -1,6 +1,40 @@
 import * as cheerio from "cheerio";
+import { GoogleGenAI } from "@google/genai";
 import { getDocumentProxy, extractText } from "unpdf";
 import { baseItem, makeId } from "./csl.js";
+
+const GEMINI_PROMPT =
+  "Extract citation metadata from this document. " +
+  "Return ONLY a JSON object with these exact fields (use null for missing values):\n" +
+  '{"title":"...","author":"...","year":"...","publisher":"...","type":"...","doi":"..."}\n' +
+  "Rules: author = comma-separated names or institution; year = 4-digit string; " +
+  'type = one of: report, book, article; doi = DOI string if present, otherwise null.';
+
+let _geminiClient = null;
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  if (!_geminiClient) _geminiClient = new GoogleGenAI({ apiKey });
+  return _geminiClient;
+}
+
+async function extractMetadataWithGemini(buffer) {
+  const client = getGeminiClient();
+  if (!client) return null;
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const response = await client.models.generateContent({
+    model,
+    contents: [{
+      parts: [
+        { inlineData: { mimeType: "application/pdf", data: buffer.toString("base64") } },
+        { text: GEMINI_PROMPT },
+      ],
+    }],
+  });
+  const raw = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const json = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  return JSON.parse(json);
+}
 
 const DOI_PATTERN = /\b10\.\d{2,9}\/[-._;()/:A-Z0-9]+(?=[\s.,;!?\)\]\}"'>]|$)/i;
 const ARXIV_PATTERN = /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5})(v\d+)?/i;
@@ -386,6 +420,28 @@ async function parsePdfToCsl(url, buffer) {
       return await fetchCrossrefCsl(doi);
     } catch {
       // Fallback when DOI metadata cannot be resolved.
+    }
+  }
+
+  // If text extraction failed or was discarded, try Gemini for metadata.
+  if (pages.length === 0) {
+    try {
+      const meta = await extractMetadataWithGemini(buffer);
+      if (meta?.title) {
+        return baseItem({
+          id: makeId("pdf"),
+          type: meta.type || "report",
+          title: meta.title,
+          author: meta.author || undefined,
+          issued: meta.year || undefined,
+          accessed: new Date().toISOString().slice(0, 10),
+          URL: url,
+          DOI: meta.doi || doi || undefined,
+          publisher: meta.publisher || undefined,
+        });
+      }
+    } catch {
+      // Gemini unavailable or failed — continue to plain fallback.
     }
   }
 
